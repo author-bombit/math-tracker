@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Трекер задач</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding: 16px;
+    background: #f5f7fa;
+    color: #1f2937;
+  }
+  h1 {
+    font-size: 18px;
+    margin: 0 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel {
+    background: #fff;
+    border-radius: 12px;
+    padding: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    margin-bottom: 12px;
+  }
+  .row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  input[type="text"] {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+  }
+  input[type="text"]:focus { border-color: #3b82f6; }
+  button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 8px;
+    background: #3b82f6;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button:hover { background: #2563eb; }
+  button.ghost {
+    background: #e5e7eb;
+    color: #374151;
+  }
+  button.ghost:hover { background: #d1d5db; }
+
+  ul { list-style: none; padding: 0; margin: 0; }
+  li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    background: #f9fafb;
+    transition: background 0.15s;
+  }
+  li.done {
+    background: #ecfdf5;
+    text-decoration: line-through;
+    color: #6b7280;
+  }
+  li .check {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    border: 2px solid #9ca3af;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    background: #fff;
+  }
+  li.done .check {
+    background: #10b981;
+    border-color: #10b981;
+    color: #fff;
+  }
+  li .text { flex: 1; font-size: 14px; }
+  li .del {
+    background: transparent;
+    color: #9ca3af;
+    font-size: 16px;
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+  li .del:hover { color: #ef4444; background: #fee2e2; }
+
+  .progress-wrap {
+    height: 10px;
+    background: #e5e7eb;
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 8px 0 4px;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #10b981);
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+  .stat {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #4b5563;
+  }
+  .big-percent {
+    font-size: 32px;
+    font-weight: 700;
+    text-align: center;
+    margin: 4px 0;
+    color: #111827;
+  }
+  .verdict {
+    text-align: center;
+    font-size: 13px;
+    padding: 8px;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #1e40af;
+  }
+  .verdict.great { background: #ecfdf5; color: #065f46; }
+  .verdict.ok { background: #fef3c7; color: #92400e; }
+  .verdict.low { background: #fee2e2; color: #991b1b; }
+  .empty {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 13px;
+    padding: 12px;
+  }
+</style>
+</head>
+<body>
+
+  <div class="panel">
+    <h1>📊 Трекер урока</h1>
+    <div class="row">
+      <input type="text" id="taskInput" placeholder="Номер или название задачи..." />
+      <button onclick="addTask()">+</button>
+    </div>
+    <button class="ghost" style="width:100%" onclick="resetAll()">🔄 Новый урок</button>
+  </div>
+
+  <div class="panel">
+    <ul id="taskList"></ul>
+    <div id="emptyMsg" class="empty">Пока задач нет — добавь первую 👆</div>
+  </div>
+
+  <div class="panel">
+    <div class="big-percent" id="bigPercent">0%</div>
+    <div class="progress-wrap"><div class="progress-bar" id="bar"></div></div>
+    <div class="stat">
+      <span id="solvedCount">Решено: 0</span>
+      <span id="totalCount">Всего: 0</span>
+    </div>
+    <div class="verdict" id="verdict" style="margin-top:10px;">Добавь задачи, чтобы увидеть итог</div>
+  </div>
+
+<script>
+  const STORAGE_KEY = 'talamus-task-tracker';
+
+  let tasks = load();
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  }
+  function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  }
+
+  function addTask() {
+    const input = document.getElementById('taskInput');
+    const text = input.value.trim();
+    if (!text) return;
+    tasks.push({ id: Date.now() + Math.random(), text, done: false });
+    input.value = '';
+    input.focus();
+    save();
+    render();
+  }
+
+  function toggle(id) {
+    const t = tasks.find(x => x.id === id);
+    if (t) { t.done = !t.done; save(); render(); }
+  }
+
+  function remove(id) {
+    tasks = tasks.filter(x => x.id !== id);
+    save();
+    render();
+  }
+
+  function resetAll() {
+    if (tasks.length && !confirm('Начать новый урок? Текущий список очистится.')) return;
+    tasks = [];
+    save();
+    render();
+  }
+
+  function render() {
+    const list = document.getElementById('taskList');
+    const emptyMsg = document.getElementById('emptyMsg');
+    list.innerHTML = '';
+
+    if (tasks.length === 0) {
+      emptyMsg.style.display = 'block';
+    } else {
+      emptyMsg.style.display = 'none';
+      tasks.forEach(t => {
+        const li = document.createElement('li');
+        if (t.done) li.classList.add('done');
+
+        const check = document.createElement('div');
+        check.className = 'check';
+        check.textContent = t.done ? '✓' : '';
+        check.onclick = () => toggle(t.id);
+
+        const text = document.createElement('div');
+        text.className = 'text';
+        text.textContent = t.text;
+
+        const del = document.createElement('button');
+        del.className = 'del';
+        del.textContent = '✕';
+        del.onclick = () => remove(t.id);
+
+        li.append(check, text, del);
+        list.appendChild(li);
+      });
+    }
+
+    updateStats();
+  }
+
+  function updateStats() {
+    const total = tasks.length;
+    const solved = tasks.filter(t => t.done).length;
+    const percent = total === 0 ? 0 : Math.round((solved / total) * 100);
+
+    document.getElementById('bigPercent').textContent = percent + '%';
+    document.getElementById('bar').style.width = percent + '%';
+    document.getElementById('solvedCount').textContent = 'Решено: ' + solved;
+    document.getElementById('totalCount').textContent = 'Всего: ' + total;
+
+    const v = document.getElementById('verdict');
+    v.className = 'verdict';
+
+    if (total === 0) {
+      v.textContent = 'Добавь задачи, чтобы увидеть итог';
+    } else if (percent === 100) {
+      v.classList.add('great');
+      v.textContent = '🏆 Идеально! Все задачи решены!';
+    } else if (percent >= 75) {
+      v.classList.add('great');
+      v.textContent = '💪 Отличная работа! Почти всё получилось.';
+    } else if (percent >= 50) {
+      v.classList.add('ok');
+      v.textContent = '👍 Хороший темп, есть куда расти.';
+    } else if (percent > 0) {
+      v.classList.add('low');
+      v.textContent = '📚 Стоит ещё поработать над этими темами.';
+    } else {
+      v.classList.add('low');
+      v.textContent = 'Начни отмечать решённые задачи ✍️';
+    }
+  }
+
+  document.getElementById('taskInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addTask();
+  });
+
+  render();
+</script>
+</body>
+</html>
